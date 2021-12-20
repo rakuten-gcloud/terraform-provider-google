@@ -39,6 +39,7 @@ func resourceContainerNodePool() *schema.Resource {
 
 		CustomizeDiff: customdiff.All(
 			resourceNodeConfigEmptyGuestAccelerator,
+			resourceRemoveAutoscaling,
 		),
 
 		UseJSONNumber: true,
@@ -92,7 +93,7 @@ var schemaNodePool = map[string]*schema.Schema{
 				"max_node_count": {
 					Type:         schema.TypeInt,
 					Required:     true,
-					ValidateFunc: validation.IntAtLeast(1),
+					ValidateFunc: validation.IntAtLeast(0),
 					Description:  `Maximum number of nodes in the NodePool. Must be >= min_node_count.`,
 				},
 			},
@@ -309,7 +310,7 @@ func resourceContainerNodePoolCreate(d *schema.ResourceData, meta interface{}) e
 	startTime := time.Now()
 
 	// we attempt to prefetch the node pool to make sure it doesn't exist before creation
-	var id = fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s", nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, nodePool.Name)
+	id := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s", nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, nodePool.Name)
 	name := getNodePoolName(id)
 	clusterNodePoolsGetCall := config.NewContainerClient(userAgent).Projects.Locations.Clusters.NodePools.Get(nodePoolInfo.fullyQualifiedName(name))
 	if config.UserProjectOverride {
@@ -383,7 +384,7 @@ func resourceContainerNodePoolCreate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	//Check cluster is in running state
+	// Check cluster is in running state
 	_, err = containerClusterAwaitRestingState(config, nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		return err
@@ -473,7 +474,7 @@ func resourceContainerNodePoolUpdate(d *schema.ResourceData, meta interface{}) e
 	}
 	name := getNodePoolName(d.Id())
 
-	//Check cluster is in running state
+	// Check cluster is in running state
 	_, err = containerClusterAwaitRestingState(config, nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		return err
@@ -490,7 +491,7 @@ func resourceContainerNodePoolUpdate(d *schema.ResourceData, meta interface{}) e
 	}
 	d.Partial(false)
 
-	//Check cluster is in running state
+	// Check cluster is in running state
 	_, err = containerClusterAwaitRestingState(config, nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		return err
@@ -517,7 +518,7 @@ func resourceContainerNodePoolDelete(d *schema.ResourceData, meta interface{}) e
 
 	name := getNodePoolName(d.Id())
 
-	//Check cluster is in running state
+	// Check cluster is in running state
 	_, err = containerClusterAwaitRestingState(config, nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		if isGoogleApiErrorWithCode(err, 404) {
@@ -642,7 +643,7 @@ func resourceContainerNodePoolStateImporter(d *schema.ResourceData, meta interfa
 		return nil, err
 	}
 
-	//Check cluster is in running state
+	// Check cluster is in running state
 	_, err = containerClusterAwaitRestingState(config, nodePoolInfo.project, nodePoolInfo.location, nodePoolInfo.cluster, userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		return nil, err
@@ -928,7 +929,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 					clusterNodePoolsUpdateCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 				}
 				op, err := clusterNodePoolsUpdateCall.Do()
-
 				if err != nil {
 					return err
 				}
@@ -962,7 +962,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 				clusterNodePoolsSetSizeCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 			}
 			op, err := clusterNodePoolsSetSizeCall.Do()
-
 			if err != nil {
 				return err
 			}
@@ -1000,7 +999,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 				clusterNodePoolsSetManagementCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 			}
 			op, err := clusterNodePoolsSetManagementCall.Do()
-
 			if err != nil {
 				return err
 			}
@@ -1030,7 +1028,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 				clusterNodePoolsUpdateCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 			}
 			op, err := clusterNodePoolsUpdateCall.Do()
-
 			if err != nil {
 				return err
 			}
@@ -1059,7 +1056,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 				clusterNodePoolsUpdateCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 			}
 			op, err := clusterNodePoolsUpdateCall.Do()
-
 			if err != nil {
 				return err
 			}
@@ -1092,7 +1088,6 @@ func nodePoolUpdate(d *schema.ResourceData, meta interface{}, nodePoolInfo *Node
 				clusterNodePoolsUpdateCall.Header().Add("X-Goog-User-Project", nodePoolInfo.project)
 			}
 			op, err := clusterNodePoolsUpdateCall.Do()
-
 			if err != nil {
 				return err
 			}

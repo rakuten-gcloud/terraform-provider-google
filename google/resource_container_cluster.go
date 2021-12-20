@@ -1117,6 +1117,29 @@ func resourceNodeConfigEmptyGuestAccelerator(_ context.Context, diff *schema.Res
 	return nil
 }
 
+func resourceRemoveAutoscaling(_ context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+	old, new := diff.GetChange("autoscaling")
+	oList := old.([]interface{})
+	nList := new.([]interface{})
+
+	if len(oList) == 0 || len(nList) == 0 {
+		return nil
+	}
+
+	oAutoscaling := oList[0].(map[string]interface{})
+	nAutoscaling := nList[0].(map[string]interface{})
+
+	oMax := int64(oAutoscaling["max_node_count"].(int))
+	nMin := int64(nAutoscaling["min_node_count"].(int))
+	nMax := int64(nAutoscaling["max_node_count"].(int))
+
+	if oMax > 0 && nMin == 0 && nMax == 0 {
+		return diff.SetNew("autoscaling", nil)
+	}
+
+	return nil
+}
+
 func resourceContainerClusterCreate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*Config)
 	userAgent, err := generateUserAgentString(d, config.userAgent)
@@ -1692,7 +1715,8 @@ func resourceContainerClusterUpdate(d *schema.ResourceData, meta interface{}) er
 		req := &container.UpdateClusterRequest{
 			Update: &container.ClusterUpdate{
 				DesiredClusterAutoscaling: expandClusterAutoscaling(d.Get("cluster_autoscaling"), d),
-			}}
+			},
+		}
 
 		updateF := updateFunc(req, "updating GKE cluster autoscaling")
 		// Call update serially.
@@ -1887,7 +1911,6 @@ func resourceContainerClusterUpdate(d *schema.ResourceData, meta interface{}) er
 				clusterSetMaintenancePolicyCall.Header().Add("X-Goog-User-Project", project)
 			}
 			op, err := clusterSetMaintenancePolicyCall.Do()
-
 			if err != nil {
 				return err
 			}
@@ -2377,7 +2400,7 @@ func resourceContainerClusterDelete(d *schema.ResourceData, meta interface{}) er
 	defer mutexKV.Unlock(containerClusterMutexKey(project, location, clusterName))
 
 	var op *container.Operation
-	var count = 0
+	count := 0
 	err = resource.Retry(30*time.Second, func() *resource.RetryError {
 		count++
 
@@ -2879,7 +2902,6 @@ func expandDefaultSnatStatus(configured interface{}) *container.DefaultSnatStatu
 		Disabled:        config["disabled"].(bool),
 		ForceSendFields: []string{"Disabled"},
 	}
-
 }
 
 func expandWorkloadIdentityConfig(configured interface{}) *container.WorkloadIdentityConfig {
@@ -2908,6 +2930,7 @@ func expandDefaultMaxPodsConstraint(v interface{}) *container.MaxPodsConstraint 
 		MaxPodsPerNode: int64(v.(int)),
 	}
 }
+
 func expandResourceUsageExportConfig(configured interface{}) *container.ResourceUsageExportConfig {
 	l := configured.([]interface{})
 	if len(l) == 0 || l[0] == nil {

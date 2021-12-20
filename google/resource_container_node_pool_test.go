@@ -378,7 +378,7 @@ func TestAccContainerNodePool_withNodeConfigScopeAlias(t *testing.T) {
 	})
 }
 
-//This test exists to validate a regional node pool *and* and update to it.
+// This test exists to validate a regional node pool *and* and update to it.
 func TestAccContainerNodePool_regionalAutoscaling(t *testing.T) {
 	t.Parallel()
 
@@ -708,6 +708,36 @@ func TestAccContainerNodePool_gcfsConfig(t *testing.T) {
 	})
 }
 
+func TestAccContainerNodePool_disableAutoscaling(t *testing.T) {
+	t.Parallel()
+
+	cluster := fmt.Sprintf("tf-test-cluster-%s", randString(t, 10))
+	np := fmt.Sprintf("tf-test-nodepool-%s", randString(t, 10))
+
+	vcrTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckContainerNodePoolDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccContainerNodePool_autoscaling(cluster, np),
+			},
+			{
+				ResourceName:      "google_container_node_pool.np",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccContainerNodePool_disableAutoscaling(cluster, np),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("google_container_node_pool.np", "autoscaling.0.min_node_count", "0"),
+					resource.TestCheckResourceAttr("google_container_node_pool.np", "autoscaling.0.max_node_count", "0"),
+				),
+			},
+		},
+	})
+}
+
 func testAccContainerNodePool_gcfsConfig(cluster, np string) string {
 	return fmt.Sprintf(`
 resource "google_container_cluster" "cluster" {
@@ -1032,6 +1062,27 @@ resource "google_container_node_pool" "np" {
   autoscaling {
     min_node_count = 0
     max_node_count = 5
+  }
+}
+`, cluster, np)
+}
+
+func testAccContainerNodePool_disableAutoscaling(cluster, np string) string {
+	return fmt.Sprintf(`
+resource "google_container_cluster" "cluster" {
+  name               = "%s"
+  location           = "us-central1-a"
+  initial_node_count = 3
+}
+
+resource "google_container_node_pool" "np" {
+  name               = "%s"
+  location           = "us-central1-a"
+  cluster            = google_container_cluster.cluster.name
+  initial_node_count = 2
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 0
   }
 }
 `, cluster, np)
